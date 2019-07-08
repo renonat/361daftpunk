@@ -18,18 +18,25 @@ const int NOTES_PER_OCTAVE = 12;
 const int MAX_NOTES = 10;   // The ma number of notes that can be pressed at once.
 const int OCTAVE_UP = 23;
 const int OCTAVE_DOWN = 22;
+const int VOLUME_UP = 21;
+const int VOLUME_DOWN = 20;
+const int ROLL_TOGGLE = 19;
 
 // Button inputs
 Bounce butOctaveUp = Bounce(OCTAVE_UP, 10);
 Bounce butOctaveDown = Bounce(OCTAVE_DOWN, 10);
+Bounce butVolumeUp = Bounce(VOLUME_UP, 10);
+Bounce butVolumeDown = Bounce(VOLUME_DOWN, 10);
+Bounce butRollToggle = Bounce(ROLL_TOGGLE, 10);
 
 // Note variables caclulated from Sensor Data
 int octaveOffset = 0;
+bool rollOn = true;
 int timbreProfile = 0;
 Queue<Note> depressedNotes(MAX_NOTES);  // Currently depressed notes
 Queue<Note> queueNotes(MAX_NOTES);      // Queue of notes to play next in roll
 Queue<Note> queueNoteOff(MAX_NOTES);    // Queue of notes to send off signals for
-float rollSpeed = 0.0;    // Relative speed of roll/tremolo
+float rollSpeed = 0.5;    // Relative speed of roll/tremolo
 float pitchBend = 0.0;    //TODO: Scale seems wrong
 
 void setup() {
@@ -41,6 +48,9 @@ void setup() {
   pinMode(5, INPUT);    // sets the digital pin 5 as input
   pinMode(OCTAVE_UP, INPUT);
   pinMode(OCTAVE_DOWN, INPUT);
+  pinMode(VOLUME_UP, INPUT);
+  pinMode(VOLUME_DOWN, INPUT);
+  pinMode(ROLL_TOGGLE, INPUT);
   Serial.begin(9600);
 }
 
@@ -69,15 +79,23 @@ void updateNotes(Queue<Note> *currentNotes) {
 }
 
 void readSensors() { //TODO
-  octaveOffset; //TODO
   butOctaveUp.update();
   butOctaveDown.update();
+  butRollToggle.update();
+  butVolumeUp.update();
+  butVolumeDown.update();
+  
   if (butOctaveUp.fallingEdge()) {
-    Serial.println("Up");
+    octaveOffset += 1;
   }
   if (butOctaveDown.fallingEdge()) {
-    Serial.println("Down");
+    octaveOffset -= 1;
   }
+
+  if (butRollToggle.fallingEdge()) {
+    rollOn = !rollOn;
+  }
+  
   timbreProfile; //TODO
   rollSpeed; //TODO
   pitchBend; //TODO
@@ -101,11 +119,13 @@ void transmitMessages() {
     sendOffMessages();
     // Play the first note in the queue, then push to the back of the queue
     Note note = queueNotes.pop();
+    Note offsetNote = Note();
     // Use the current octave info to adjust the note
-    note.noteInt = note.noteInt + NOTES_PER_OCTAVE*octaveOffset;
+    offsetNote.velocity = note.velocity;
+    offsetNote.noteInt = note.noteInt + NOTES_PER_OCTAVE*octaveOffset;
 //    Serial.println(note.noteInt);
-    usbMIDI.sendNoteOn(note.noteInt, note.velocity, CHANNEL);
-    queueNoteOff.push(note);
+    usbMIDI.sendNoteOn(offsetNote.noteInt, offsetNote.velocity, CHANNEL);
+    queueNoteOff.push(offsetNote);
     queueNotes.push(note);
   }
   //TODO: Also send messages related to other values
@@ -119,7 +139,7 @@ void loop() {
     sensorFramePeriod = 0;   
   }
   // Preform this after the above, that way everything occurs in a single thread
-  if(rollSpeed > 0.0){
+  if(rollOn){
     if(rollFramePeriod>(MAX_ROLL_FRAME - rollSpeed*MAX_ROLL_FRAME)){
       transmitMessages();
       rollFramePeriod = 0;
