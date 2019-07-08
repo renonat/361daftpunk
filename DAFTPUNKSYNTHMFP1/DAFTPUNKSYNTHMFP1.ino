@@ -123,7 +123,6 @@ void transmitMessages() {
     // Use the current octave info to adjust the note
     offsetNote.velocity = note.velocity;
     offsetNote.noteInt = note.noteInt + NOTES_PER_OCTAVE*octaveOffset;
-//    Serial.println(note.noteInt);
     usbMIDI.sendNoteOn(offsetNote.noteInt, offsetNote.velocity, CHANNEL);
     queueNoteOff.push(offsetNote);
     queueNotes.push(note);
