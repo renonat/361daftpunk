@@ -15,18 +15,18 @@ const int SENSOR_FRAME = 1.0;
 const float MAX_ROLL_FRAME = 500.0;
 const byte CHANNEL = 1;
 const int NOTES_PER_OCTAVE = 12;
-const int MAX_NOTES = 10;   // The ma number of notes that can be pressed at once.
+const int MAX_NOTES = 10;   // The max number of notes that can be pressed at once.
 const int OCTAVE_UP = 23;
 const int OCTAVE_DOWN = 22;
-const int VOLUME_UP = 21;
-const int VOLUME_DOWN = 20;
+//const int VOLUME_UP = 21;
+//const int VOLUME_DOWN = 20;
 const int ROLL_TOGGLE = 19;
 
 // Button inputs
 Bounce butOctaveUp = Bounce(OCTAVE_UP, 10);
 Bounce butOctaveDown = Bounce(OCTAVE_DOWN, 10);
-Bounce butVolumeUp = Bounce(VOLUME_UP, 10);
-Bounce butVolumeDown = Bounce(VOLUME_DOWN, 10);
+//Bounce butVolumeUp = Bounce(VOLUME_UP, 10);
+//Bounce butVolumeDown = Bounce(VOLUME_DOWN, 10);
 Bounce butRollToggle = Bounce(ROLL_TOGGLE, 10);
 
 // Note variables caclulated from Sensor Data
@@ -37,7 +37,7 @@ Queue<Note> depressedNotes(MAX_NOTES);  // Currently depressed notes
 Queue<Note> queueNotes(MAX_NOTES);      // Queue of notes to play next in roll
 Queue<Note> queueNoteOff(MAX_NOTES);    // Queue of notes to send off signals for
 float rollSpeed = 0.5;    // Relative speed of roll/tremolo
-float pitchBend = 0.0;    //TODO: Scale seems wrong
+float pitchBend = 0.0;    // Range(0.0,1.0)
 
 void setup() {
   pinMode(0, INPUT);    // sets the digital pin 0 as input
@@ -48,8 +48,8 @@ void setup() {
   pinMode(5, INPUT);    // sets the digital pin 5 as input
   pinMode(OCTAVE_UP, INPUT);
   pinMode(OCTAVE_DOWN, INPUT);
-  pinMode(VOLUME_UP, INPUT);
-  pinMode(VOLUME_DOWN, INPUT);
+//  pinMode(VOLUME_UP, INPUT);
+//  pinMode(VOLUME_DOWN, INPUT);
   pinMode(ROLL_TOGGLE, INPUT);
   Serial.begin(9600);
 }
@@ -78,12 +78,12 @@ void updateNotes(Queue<Note> *currentNotes) {
   }
 }
 
-void readSensors() { //TODO
+void readSensors() {
   butOctaveUp.update();
   butOctaveDown.update();
-  butRollToggle.update();
-  butVolumeUp.update();
-  butVolumeDown.update();
+//  butRollToggle.update();
+//  butVolumeUp.update();
+//  butVolumeDown.update();
   
   if (butOctaveUp.fallingEdge()) {
     octaveOffset += 1;
@@ -104,8 +104,8 @@ void readSensors() { //TODO
   for (int pin = 0; pin <= 5; pin++) {
     if (digitalRead(pin) == 1) {
       Note note = Note();
-      note.noteInt = 24 + pin; // Multiplied by 10 for testing
-      note.velocity = 127;
+      note.noteInt = 24 + pin; // Base note is 24 (C1)
+      note.velocity = 127;     // Placeholder value for the maximum velocity
       currentNotes.push(note);
     }
   }
@@ -127,6 +127,7 @@ void transmitMessages() {
     queueNoteOff.push(offsetNote);
     queueNotes.push(note);
   }
+  usbMIDI.sendPitchBend(pitchBend * 16384, CHANNEL);
   //TODO: Also send messages related to other values
 }
 
@@ -143,7 +144,7 @@ void loop() {
       transmitMessages();
       rollFramePeriod = 0;
     }
-  } else {
+  } else {e
     // No roll, so instantly play all the notes in the queue
     // The queue will not get updated until the current set of notes changes
     while (queueNotes.count() > 0) {
