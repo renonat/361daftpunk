@@ -144,7 +144,7 @@ void loop() {
       transmitMessages();
       rollFramePeriod = 0;
     }
-  } else {e
+  } else {
     // No roll, so instantly play all the notes in the queue
     // The queue will not get updated until the current set of notes changes
     while (queueNotes.count() > 0) {
