@@ -1,5 +1,8 @@
 #include "Queue.h"
 #include <Bounce.h>
+#include <Wire.h>
+#include "Adafruit_MPR121.h"
+
 elapsedMillis sensorFramePeriod = 0; // a timer used to only update sensor values after a certain period of time
 elapsedMillis rollFramePeriod = 0; // a timer used to roll the notes
 
@@ -11,7 +14,7 @@ class Note
 };
 
 // Constants
-const int SENSOR_FRAME = 1.0;
+const int SENSOR_FRAME = 10.0;
 const float MAX_ROLL_FRAME = 500.0;
 const byte CHANNEL = 1;
 const int NOTES_PER_OCTAVE = 12;
@@ -24,6 +27,12 @@ const int ROLL_TOGGLE = 23;
 Bounce butOctaveUp = Bounce(OCTAVE_UP, 10);
 Bounce butOctaveDown = Bounce(OCTAVE_DOWN, 10);
 Bounce butRollToggle = Bounce(ROLL_TOGGLE, 10);
+
+//Capacitive Inputs
+Adafruit_MPR121 capA = Adafruit_MPR121();
+// Current and previous state of the capacitive touch sensors
+uint16_t currstateA = 0;
+uint16_t prevstateA = 0;
 
 // Note variables caclulated from Sensor Data
 int octaveOffset = 0;
@@ -46,6 +55,13 @@ void setup() {
   pinMode(OCTAVE_DOWN, INPUT);
   pinMode(ROLL_TOGGLE, INPUT);
   Serial.begin(9600);
+
+  // start the "A" cap-touch board - 0x5A is the I2C address
+  capA.begin(0x5A);
+  if (!capA.begin(0x5A)) {
+    Serial.println("MPR121 not found, check wiring?");
+    while (1);
+  }
 }
 
 void sendOffMessages() {
@@ -73,6 +89,9 @@ void updateNotes(Queue<Note> *currentNotes) {
 }
 
 void readSensors() {
+  currstateA = capA.touched();
+  Serial.println(currstateA);
+  
   butOctaveUp.update();
   butOctaveDown.update();
   butRollToggle.update();
@@ -85,7 +104,6 @@ void readSensors() {
     octaveOffset -= 1;
     Serial.println("Octave down");
   }
-
   if (butRollToggle.fallingEdge()) {
     rollOn = !rollOn;
     Serial.println("roll");
@@ -96,10 +114,10 @@ void readSensors() {
   pitchBend; //TODO
   Queue<Note> currentNotes(MAX_NOTES);
 
-  for (int pin = 0; pin <= 5; pin++) {
-    if (digitalRead(pin) == 1) {
+  for (int pin = 0; pin < 6; pin++) {
+    if (bitRead(currstateA,pin) == 1) {
       Note note = Note();
-      note.noteInt = 24 + pin; // Base note is 24 (C1)
+      note.noteInt = 24 + (pin - 1); // Base note is 24 (C1)
       note.velocity = 127;     // Placeholder value for the maximum velocity
       currentNotes.push(note);
     }
