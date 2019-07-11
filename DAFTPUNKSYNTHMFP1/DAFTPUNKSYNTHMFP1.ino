@@ -4,6 +4,7 @@
 #include "Adafruit_MPR121.h"
 
 elapsedMillis sensorFramePeriod = 0; // a timer used to only update sensor values after a certain period of time
+elapsedMillis capacitiveFramePeriod = 0; // a timer used to update the cap sensors
 elapsedMillis rollFramePeriod = 0; // a timer used to roll the notes
 
 class Note
@@ -14,7 +15,6 @@ class Note
 };
 
 // Constants
-const int SENSOR_FRAME = 10.0;
 const float MAX_ROLL_FRAME = 500.0;
 const byte CHANNEL = 1;
 const int NOTES_PER_OCTAVE = 12;
@@ -38,19 +38,12 @@ uint16_t prevstateA = 0;
 int octaveOffset = 0;
 bool rollOn = true;
 int timbreProfile = 0;
-Queue<Note> depressedNotes(MAX_NOTES);  // Currently depressed notes
 Queue<Note> queueNotes(MAX_NOTES);      // Queue of notes to play next in roll
 Queue<Note> queueNoteOff(MAX_NOTES);    // Queue of notes to send off signals for
 float rollSpeed = 0.7;    // Relative speed of roll/tremolo
 float pitchBend = 0.0;    // Range(0.0,1.0)
 
 void setup() {
-  pinMode(0, INPUT);    // sets the digital pin 0 as input
-  pinMode(1, INPUT);    // sets the digital pin 1 as input
-  pinMode(2, INPUT);    // sets the digital pin 2 as input
-  pinMode(3, INPUT);    // sets the digital pin 3 as input
-  pinMode(4, INPUT);    // sets the digital pin 4 as input
-  pinMode(5, INPUT);    // sets the digital pin 5 as input
   pinMode(OCTAVE_UP, INPUT);
   pinMode(OCTAVE_DOWN, INPUT);
   pinMode(ROLL_TOGGLE, INPUT);
@@ -64,7 +57,7 @@ void setup() {
   }
 }
 
-void sendOffMessages() {
+void sendAllOffMessages() {
     // Send note off messages for all previously pressed notes when the number of notes changes
     while(queueNoteOff.count() > 0) {
       Note note = queueNoteOff.pop();
@@ -72,26 +65,7 @@ void sendOffMessages() {
     }
 }
 
-void updateNotes(Queue<Note> *currentNotes) {
-  // If the currently pressed notes have changed, then refresh our depressed notes tracker
-  // Also reset the queue with the new set of notes
-  if (currentNotes->count() != depressedNotes.count()) {
-    // Send off messages here so that they are properly sent when the state changes
-    sendOffMessages();
-    queueNotes.clear();
-    depressedNotes.clear();
-    while (currentNotes->count() > 0) {
-      Note note = currentNotes->pop();
-      queueNotes.push(note);
-      depressedNotes.push(note);
-    }
-  }
-}
-
-void readSensors() {
-  currstateA = capA.touched();
-  Serial.println(currstateA);
-  
+void readInputSensors() {
   butOctaveUp.update();
   butOctaveDown.update();
   butRollToggle.update();
@@ -107,29 +81,79 @@ void readSensors() {
   if (butRollToggle.fallingEdge()) {
     rollOn = !rollOn;
     Serial.println("roll");
+    // When roll control is changed, send all old off messages
+    sendAllOffMessages();
+    queueNotes.clear();
   }
   
   timbreProfile; //TODO
   rollSpeed; //TODO
   pitchBend; //TODO
-  Queue<Note> currentNotes(MAX_NOTES);
-
-  for (int pin = 0; pin < 6; pin++) {
-    if (bitRead(currstateA,pin) == 1) {
-      Note note = Note();
-      note.noteInt = 24 + (pin - 1); // Base note is 24 (C1)
-      note.velocity = 127;     // Placeholder value for the maximum velocity
-      currentNotes.push(note);
-    }
-  }
-  updateNotes(&currentNotes);
 }
 
+void sendNoteOff(Note *note) {
+  // Find the note in the OFF queue that has the same note (minus octave)
+  // And send the off message.
+  // The rest of the queue shall remain as is
+  for (int n = 0; n < queueNoteOff.count(); n++) {
+    Note comp = queueNoteOff.pop();
+    if (comp.noteInt % 12 == note->noteInt % 12) {
+      usbMIDI.sendNoteOff(comp.noteInt, comp.velocity, CHANNEL);
+    } else {
+      queueNoteOff.push(comp);
+    }
+  }
+}
 
-void transmitMessages() {
+void readRollingCapacitiveNotes() {
+  currstateA = capA.touched();
+  if (currstateA != prevstateA) {
+    sendAllOffMessages();
+    queueNotes.clear();
+    for(int pin = 0; pin < 6; pin++) {
+      if (bitRead(currstateA,pin) == 1) {
+        Note note = Note();
+        note.noteInt = 24 + pin;
+        note.velocity = 127;
+        queueNotes.push(note);
+      }
+    }  
+  }
+  
+  // Update our state
+  prevstateA = currstateA;
+}
+
+void playCapacitiveNotes() {
+  // Get the currently touched pads
+  currstateA = capA.touched();
+
+  for(int pin = 0; pin < 6; pin++) {
+    if (bitRead(currstateA,pin) != bitRead(prevstateA,pin)) {
+      Note note = Note();
+      note.velocity = 127;
+      // Offset the octave of the note immediately
+      note.noteInt = 24 + pin + NOTES_PER_OCTAVE*octaveOffset;
+      
+      // Note has been pressed
+      if (bitRead(currstateA,pin) == 1) {
+        usbMIDI.sendNoteOn(note.noteInt, note.velocity, CHANNEL);
+        queueNoteOff.push(note);
+      // Otherwise note has been released
+      } else {
+        sendNoteOff(&note);        
+      }
+    }
+  }
+
+  // Update our state
+  prevstateA = currstateA;
+}
+
+void playRollingNotes() {
   if (queueNotes.count() > 0) {
     // Send off messages here so that each note has an definite ending when playing rolls/tremolo
-    sendOffMessages();
+    sendAllOffMessages();
     // Play the first note in the queue, then push to the back of the queue
     Note note = queueNotes.pop();
     Note offsetNote = Note();
@@ -140,36 +164,31 @@ void transmitMessages() {
     queueNoteOff.push(offsetNote);
     queueNotes.push(note);
   }
-//  usbMIDI.sendPitchBend(pitchBend * 16384, CHANNEL);
-  //TODO: Also send messages related to other values
 }
 
 void loop() {
-  // Update the instrument with parameters from the sensors
-  // Only do this after a certain amount of time (so we're not always updating it on every loop)
-  if(sensorFramePeriod>SENSOR_FRAME){ //TODO: Adjust this timing parameter
-    readSensors();
+  if (sensorFramePeriod>100.0) {
+    readInputSensors();
     sensorFramePeriod = 0;   
   }
-  // Preform this after the above, that way everything occurs in a single thread
-  if(rollOn){
-    if(rollFramePeriod>(MAX_ROLL_FRAME - rollSpeed*MAX_ROLL_FRAME)){
-      transmitMessages();
-      rollFramePeriod = 0;
+
+  if (capacitiveFramePeriod>10.0) {
+    if (rollOn) {
+        readRollingCapacitiveNotes();
+    } else {
+        playCapacitiveNotes();
     }
-  } else {
-    // No roll, so instantly play all the notes in the queue
-    // The queue will not get updated until the current set of notes changes
-    while (queueNotes.count() > 0) {
-      Note note = queueNotes.pop();
-      // Use the current octave info to adjust the note
-      note.noteInt = note.noteInt + NOTES_PER_OCTAVE*octaveOffset;
-      usbMIDI.sendNoteOn(note.noteInt, note.velocity, CHANNEL);
-      queueNoteOff.push(note);
-    }
+    capacitiveFramePeriod = 0;
   }
 
-//   MIDI Controllers should discard incoming MIDI messages.
+  if(rollOn){
+    if(rollFramePeriod>(MAX_ROLL_FRAME - rollSpeed*MAX_ROLL_FRAME)){
+      playRollingNotes();
+      rollFramePeriod = 0;
+    }
+  }
+  
+  // MIDI Controllers should discard incoming MIDI messages.
   while (usbMIDI.read()) {
   }
 }
