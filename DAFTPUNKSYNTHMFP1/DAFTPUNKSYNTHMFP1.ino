@@ -16,17 +16,13 @@ const float MAX_ROLL_FRAME = 500.0;
 const byte CHANNEL = 1;
 const int NOTES_PER_OCTAVE = 12;
 const int MAX_NOTES = 10;   // The max number of notes that can be pressed at once.
-const int OCTAVE_UP = 23;
+const int OCTAVE_UP = 21;
 const int OCTAVE_DOWN = 22;
-//const int VOLUME_UP = 21;
-//const int VOLUME_DOWN = 20;
-const int ROLL_TOGGLE = 19;
+const int ROLL_TOGGLE = 23;
 
 // Button inputs
 Bounce butOctaveUp = Bounce(OCTAVE_UP, 10);
 Bounce butOctaveDown = Bounce(OCTAVE_DOWN, 10);
-//Bounce butVolumeUp = Bounce(VOLUME_UP, 10);
-//Bounce butVolumeDown = Bounce(VOLUME_DOWN, 10);
 Bounce butRollToggle = Bounce(ROLL_TOGGLE, 10);
 
 // Note variables caclulated from Sensor Data
@@ -36,7 +32,7 @@ int timbreProfile = 0;
 Queue<Note> depressedNotes(MAX_NOTES);  // Currently depressed notes
 Queue<Note> queueNotes(MAX_NOTES);      // Queue of notes to play next in roll
 Queue<Note> queueNoteOff(MAX_NOTES);    // Queue of notes to send off signals for
-float rollSpeed = 0.5;    // Relative speed of roll/tremolo
+float rollSpeed = 0.7;    // Relative speed of roll/tremolo
 float pitchBend = 0.0;    // Range(0.0,1.0)
 
 void setup() {
@@ -48,8 +44,6 @@ void setup() {
   pinMode(5, INPUT);    // sets the digital pin 5 as input
   pinMode(OCTAVE_UP, INPUT);
   pinMode(OCTAVE_DOWN, INPUT);
-//  pinMode(VOLUME_UP, INPUT);
-//  pinMode(VOLUME_DOWN, INPUT);
   pinMode(ROLL_TOGGLE, INPUT);
   Serial.begin(9600);
 }
@@ -81,19 +75,20 @@ void updateNotes(Queue<Note> *currentNotes) {
 void readSensors() {
   butOctaveUp.update();
   butOctaveDown.update();
-//  butRollToggle.update();
-//  butVolumeUp.update();
-//  butVolumeDown.update();
+  butRollToggle.update();
   
   if (butOctaveUp.fallingEdge()) {
     octaveOffset += 1;
+    Serial.println("Octave up");
   }
   if (butOctaveDown.fallingEdge()) {
     octaveOffset -= 1;
+    Serial.println("Octave down");
   }
 
   if (butRollToggle.fallingEdge()) {
     rollOn = !rollOn;
+    Serial.println("roll");
   }
   
   timbreProfile; //TODO
@@ -127,7 +122,7 @@ void transmitMessages() {
     queueNoteOff.push(offsetNote);
     queueNotes.push(note);
   }
-  usbMIDI.sendPitchBend(pitchBend * 16384, CHANNEL);
+//  usbMIDI.sendPitchBend(pitchBend * 16384, CHANNEL);
   //TODO: Also send messages related to other values
 }
 
