@@ -29,7 +29,7 @@ const int AMPLITUDE = 32;
 // Button inputs
 Bounce butOctaveUp = Bounce(OCTAVE_UP, 10);
 Bounce butOctaveDown = Bounce(OCTAVE_DOWN, 10);
-Bounce butRollToggle = Bounce(ROLL_TOGGLE, 10);
+//Bounce butRollToggle = Bounce(ROLL_TOGGLE, 10);
 
 //Capacitive Inputs
 Adafruit_MPR121 capA = Adafruit_MPR121();
@@ -74,7 +74,7 @@ void sendAllOffMessages() {
 void readInputSensors() {
   butOctaveUp.update();
   butOctaveDown.update();
-  butRollToggle.update();
+//  butRollToggle.update();
   
   if (butOctaveUp.fallingEdge()) {
     octaveOffset += 1;
@@ -84,13 +84,13 @@ void readInputSensors() {
     octaveOffset -= 1;
     Serial.println("Octave down");
   }
-  if (butRollToggle.fallingEdge()) {
-    rollOn = !rollOn;
-    Serial.println("roll");
-    // When roll control is changed, send all old off messages
-    sendAllOffMessages();
-    queueNotes.clear();
-  }
+//  if (butRollToggle.fallingEdge()) {
+//    rollOn = !rollOn;
+//    Serial.println("roll");
+//    // When roll control is changed, send all old off messages
+//    sendAllOffMessages();
+//    queueNotes.clear();
+//  }
 
   
   timbreProfile; //TODO
@@ -100,7 +100,8 @@ void readInputSensors() {
   }else{
     rollSpeed = rollSpeed;
   }
-//  rollSpeed = analogRead(ROLL_SPEED);
+  updateRollToggle(rollSpeed);
+  
   Serial.print("rollspeed ");
   Serial.println(rollSpeed);
   noteAmplitude = (analogRead(AMPLITUDE)-8.00)*127.00/1014.00; // Potentiometer value changes from 9 to 1023
@@ -109,6 +110,18 @@ void readInputSensors() {
   Serial.println(noteAmplitude);
   pitchBend; //TODO
   
+}
+
+void updateRollToggle(float new_rollspeed) {
+  bool new_rollon = true;
+  if (new_rollspeed <= 0.01) {
+    new_rollon = false;
+  }
+  if (new_rollon != rollOn) {
+    sendAllOffMessages();
+    queueNotes.clear();
+  }
+  rollOn = new_rollon;
 }
 
 void sendNoteOff(Note *note) {
@@ -137,7 +150,9 @@ void readRollingCapacitiveNotes() {
         //note.velocity = noteAmplitude;
         queueNotes.push(note);
       }
-    }  
+    }
+    playRollingNotes();
+    rollFramePeriod = 0.0;
   }
   
   // Update our state
