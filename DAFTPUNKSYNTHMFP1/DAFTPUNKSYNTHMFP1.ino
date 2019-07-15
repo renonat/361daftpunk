@@ -11,7 +11,7 @@ class Note
 {
   public:
     byte noteInt;
-    byte velocity;
+  //  byte velocity;
 };
 
 // Constants
@@ -22,6 +22,9 @@ const int MAX_NOTES = 10;   // The max number of notes that can be pressed at on
 const int OCTAVE_UP = 21;
 const int OCTAVE_DOWN = 22;
 const int ROLL_TOGGLE = 23;
+const int ROLL_SPEED = 31;
+const int AMPLITUDE = 32;
+
 
 // Button inputs
 Bounce butOctaveUp = Bounce(OCTAVE_UP, 10);
@@ -42,11 +45,14 @@ Queue<Note> queueNotes(MAX_NOTES);      // Queue of notes to play next in roll
 Queue<Note> queueNoteOff(MAX_NOTES);    // Queue of notes to send off signals for
 float rollSpeed = 0.7;    // Relative speed of roll/tremolo
 float pitchBend = 0.0;    // Range(0.0,1.0)
+float noteAmplitude = 0.0;
 
 void setup() {
   pinMode(OCTAVE_UP, INPUT);
   pinMode(OCTAVE_DOWN, INPUT);
   pinMode(ROLL_TOGGLE, INPUT);
+  pinMode(ROLL_SPEED, INPUT);
+  pinMode(AMPLITUDE, INPUT);
   Serial.begin(9600);
 
   // start the "A" cap-touch board - 0x5A is the I2C address
@@ -61,7 +67,7 @@ void sendAllOffMessages() {
     // Send note off messages for all previously pressed notes when the number of notes changes
     while(queueNoteOff.count() > 0) {
       Note note = queueNoteOff.pop();
-      usbMIDI.sendNoteOff(note.noteInt, note.velocity, CHANNEL);
+      usbMIDI.sendNoteOff(note.noteInt, noteAmplitude, CHANNEL);
     }
 }
 
@@ -85,10 +91,24 @@ void readInputSensors() {
     sendAllOffMessages();
     queueNotes.clear();
   }
+
   
   timbreProfile; //TODO
-  rollSpeed; //TODO
+  rollSpeed = (analogRead(ROLL_SPEED)-10.00)/1012.00; // Potentiometer value changes from 11 to 1023
+  if(rollSpeed >= 0.85){
+    rollSpeed = 0.85;
+  }else{
+    rollSpeed = rollSpeed;
+  }
+//  rollSpeed = analogRead(ROLL_SPEED);
+  Serial.print("rollspeed ");
+  Serial.println(rollSpeed);
+  noteAmplitude = (analogRead(AMPLITUDE)-8.00)*127.00/1014.00; // Potentiometer value changes from 9 to 1023
+//  noteAmplitude = analogRead(AMPLITUDE);
+  Serial.print("amplitude ");
+  Serial.println(noteAmplitude);
   pitchBend; //TODO
+  
 }
 
 void sendNoteOff(Note *note) {
@@ -98,7 +118,7 @@ void sendNoteOff(Note *note) {
   for (int n = 0; n < queueNoteOff.count(); n++) {
     Note comp = queueNoteOff.pop();
     if (comp.noteInt % 12 == note->noteInt % 12) {
-      usbMIDI.sendNoteOff(comp.noteInt, comp.velocity, CHANNEL);
+      usbMIDI.sendNoteOff(comp.noteInt, noteAmplitude, CHANNEL);
     } else {
       queueNoteOff.push(comp);
     }
@@ -114,7 +134,7 @@ void readRollingCapacitiveNotes() {
       if (bitRead(currstateA,pin) == 1) {
         Note note = Note();
         note.noteInt = 24 + pin;
-        note.velocity = 127;
+        //note.velocity = noteAmplitude;
         queueNotes.push(note);
       }
     }  
@@ -131,13 +151,13 @@ void playCapacitiveNotes() {
   for(int pin = 0; pin < 6; pin++) {
     if (bitRead(currstateA,pin) != bitRead(prevstateA,pin)) {
       Note note = Note();
-      note.velocity = 127;
+      //note.velocity = noteAmplitude;
       // Offset the octave of the note immediately
       note.noteInt = 24 + pin + NOTES_PER_OCTAVE*octaveOffset;
       
       // Note has been pressed
       if (bitRead(currstateA,pin) == 1) {
-        usbMIDI.sendNoteOn(note.noteInt, note.velocity, CHANNEL);
+        usbMIDI.sendNoteOn(note.noteInt, noteAmplitude, CHANNEL);
         queueNoteOff.push(note);
       // Otherwise note has been released
       } else {
@@ -158,9 +178,9 @@ void playRollingNotes() {
     Note note = queueNotes.pop();
     Note offsetNote = Note();
     // Use the current octave info to adjust the note
-    offsetNote.velocity = note.velocity;
+//    offsetNote.velocity = note.velocity;
     offsetNote.noteInt = note.noteInt + NOTES_PER_OCTAVE*octaveOffset;
-    usbMIDI.sendNoteOn(offsetNote.noteInt, offsetNote.velocity, CHANNEL);
+    usbMIDI.sendNoteOn(offsetNote.noteInt, noteAmplitude, CHANNEL);
     queueNoteOff.push(offsetNote);
     queueNotes.push(note);
   }
