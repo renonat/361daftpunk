@@ -26,9 +26,10 @@ const int ROLL_SPEED = 31;
 const int AMPLITUDE = 32;
 
 
+
 // Button inputs
-Bounce butOctaveUp = Bounce(OCTAVE_UP, 10);
-Bounce butOctaveDown = Bounce(OCTAVE_DOWN, 10);
+//Bounce butOctaveUp = Bounce(OCTAVE_UP, 10);
+//Bounce butOctaveDown = Bounce(OCTAVE_DOWN, 10);
 //Bounce butRollToggle = Bounce(ROLL_TOGGLE, 10);
 
 //Capacitive Inputs
@@ -43,12 +44,8 @@ bool rollOn = true;
 int timbreProfile = 0;
 Queue<Note> queueNotes(MAX_NOTES);      // Queue of notes to play next in roll
 Queue<Note> queueNoteOff(MAX_NOTES);    // Queue of notes to send off signals for
-float rollVelocity = 0;
-float rollSpeedScaler = 0;
 float rollSpeed = 0.7;    // Relative speed of roll/tremolo
 float pitchBend = 0.0;    // Range(0.0,1.0)
-float noteAmplitudeChng = 0;
-float noteAmplitudeScaler = 0;
 float noteAmplitude = 0.0;
 
 void setup() {
@@ -76,15 +73,15 @@ void sendAllOffMessages() {
 }
 
 void readInputSensors() {
-  butOctaveUp.update();
-  butOctaveDown.update();
+//  butOctaveUp.update();
+//  butOctaveDown.update();
 //  butRollToggle.update();
   
-  if (butOctaveUp.fallingEdge()) {
+  if (digitalRead(OCTAVE_UP)) {
     octaveOffset += 1;
     Serial.println("Octave up");
   }
-  if (butOctaveDown.fallingEdge()) {
+  if (digitalRead(OCTAVE_UP)) {
     octaveOffset -= 1;
     Serial.println("Octave down");
   }
@@ -98,45 +95,18 @@ void readInputSensors() {
 
   
   timbreProfile; //TODO
-  rollVelocity = (analogRead(ROLL_SPEED)-10.00)/1012.00; // Potentiometer value changes from 11 to 1023
-  rollSpeedScaler = (abs(rollVelocity - 0.56)/5.0);
-  if(rollVelocity > 0.57 && rollSpeed < 0.85) {
-    if(rollSpeed + rollSpeedScaler < 0.85) {
-      rollSpeed += rollSpeedScaler;
-    } else {
-      rollSpeed = 0.85;
-    }
-    
-  }else if (rollVelocity < 0.55  && rollSpeed > 0.00){
-    if(rollSpeed - rollSpeedScaler > 0.0){
-      rollSpeed -= rollSpeedScaler;
-    } else {
-      rollSpeed = 0.0;
-    }
+  rollSpeed = (analogRead(ROLL_SPEED)-10.00)/1012.00; // Potentiometer value changes from 11 to 1023
+  if(rollSpeed >= 0.85){
+    rollSpeed = 0.85;
+  }else{
+    rollSpeed = rollSpeed;
   }
   updateRollToggle(rollSpeed);
-  //Serial.print("roll Velocity:  ");
-  //Serial.println(rollVelocity);
+  
   Serial.print("rollspeed ");
   Serial.println(rollSpeed);
-
-  
-  noteAmplitudeChng = (analogRead(AMPLITUDE)-8.00)*127.00/1014.00; // Potentiometer value changes from 9 to 1023
-  noteAmplitudeScaler = (abs(noteAmplitudeChng - 72.0)/5.0);
-  if(noteAmplitudeChng > 73.00 && noteAmplitude < 127.0) {
-     if ((noteAmplitude + noteAmplitudeScaler) < 127.0) {
-      noteAmplitude += noteAmplitudeScaler;
-     }else{
-      noteAmplitude = 127.00;
-     }
-  }else if(noteAmplitudeChng < 71.00 && noteAmplitude > 0) {
-    if ((noteAmplitude - noteAmplitudeScaler) > 0){
-      noteAmplitude -= noteAmplitudeScaler;
-     }else{
-      noteAmplitude = 0.00;
-     }
-  }
-  
+  noteAmplitude = (analogRead(AMPLITUDE)-8.00)*127.00/1014.00; // Potentiometer value changes from 9 to 1023
+//  noteAmplitude = analogRead(AMPLITUDE);
   Serial.print("amplitude ");
   Serial.println(noteAmplitude);
   pitchBend; //TODO
