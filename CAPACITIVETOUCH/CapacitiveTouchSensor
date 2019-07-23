@@ -1,12 +1,12 @@
 #include <CapacitiveSensor.h>
 
-CapacitiveSensor   cs_1_0 = CapacitiveSensor(1,0);
-CapacitiveSensor   cs_1_1 = CapacitiveSensor(1,1);
+CapacitiveSensor   cs_2_0 = CapacitiveSensor(2,0);
+CapacitiveSensor   cs_2_1 = CapacitiveSensor(2,1);
 
 void setup()                    
 {
-   cs_1_0.set_CS_AutocaL_Millis(0xFFFFFFFF);     // turn off autocalibrate on channel 1 - just as an example
-   cs_1_1.set_CS_AutocaL_Millis(0xFFFFFFFF);     // turn off autocalibrate on channel 1 - just as an example
+   cs_2_0.set_CS_AutocaL_Millis(0xFFFFFFFF);     // turn off autocalibrate on channel 1 - just as an example
+   cs_2_1.set_CS_AutocaL_Millis(0xFFFFFFFF);     // turn off autocalibrate on channel 1 - just as an example
 
    Serial.begin(9600);
 
@@ -17,8 +17,8 @@ void setup()
 
 void loop()                    
 {
-    long total0 =  cs_1_0.capacitiveSensor(30);
-    long total1 =  cs_1_1.capacitiveSensor(30);
+    long total0 =  cs_2_0.capacitiveSensor(30);
+    long total1 =  cs_2_1.capacitiveSensor(30);
 
 
     if(total0 > 10000 && total1 < 10000)
