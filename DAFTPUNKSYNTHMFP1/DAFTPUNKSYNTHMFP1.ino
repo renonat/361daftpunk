@@ -129,7 +129,6 @@ void updateRollToggle(float new_rollspeed) {
   }
   if (new_rollon != rollOn) {
     sendAllOffMessages();
-    queueNotes.clear();
   }
   rollOn = new_rollon;
 }
