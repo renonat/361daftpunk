@@ -19,7 +19,6 @@ elapsedMillis rollFramePeriod = 0;        // Preform rolling/tremolo of notes
 const float MAX_ROLL_FRAME = 500.0;  // The maximum time in between repeated notes
 const byte CHANNEL = 1;              // The MIDI channel
 const int NOTES_PER_OCTAVE = 12;
-const int BASE_NOTE = 24;
 const int BASE_NOTE_RIGHT = 30;            // The base note id for our instrument.
 const int BASE_NOTE_LEFT = 18;
 const int MAX_NOTES = 10;            // The max number of notes that can be pressed at once.
@@ -171,12 +170,8 @@ void readRollingCapacitiveNotes() {
     queueNotes.clear();
     for(int pin = 0; pin < 12; pin++) {
       if (bitRead(currstateA,pin) == 1) {
-        int note = 0;
-        if(BASE_NOTE + pin >= 30) {
-          note = BASE_NOTE_LEFT + pin;
-        } else {
-          note = BASE_NOTE_RIGHT + pin;
-        }
+        // Adjust notes so that lowest note is on left hand
+        int note = pin + (pin >= 30 ? BASE_NOTE_LEFT : BASE_NOTE_RIGHT);
         queueNotes.push(note);
       }
     }
@@ -212,7 +207,8 @@ void playCapacitiveNotes() {
   for(int pin = 0; pin < 12; pin++) {
     if (bitRead(currstateA,pin) != bitRead(prevstateA,pin)) {
       // Offset the octave of the note immediately
-      int note = BASE_NOTE + pin + NOTES_PER_OCTAVE*octaveOffset;
+      // Adjust notes so that lowest note is on left hand
+      int note = pin + (pin >= 30 ? BASE_NOTE_LEFT : BASE_NOTE_RIGHT) + NOTES_PER_OCTAVE * octaveOffset;
       
       // Note has been pressed
       if (bitRead(currstateA,pin) == 1) {
